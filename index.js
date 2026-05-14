@@ -7,16 +7,13 @@ const {
 const fs = require("fs-extra")
 const waifus = require("./waifus")
 
-const PHONE_NUMBER = "59899887381" // 🔴 CAMBIA ESTO
-
+const PHONE_NUMBER = "59899887381"
 const DB_FILE = "./data.json"
 
-// 📦 crear DB si no existe
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({}))
 }
 
-// 💾 DB utils
 function getDB() {
   return JSON.parse(fs.readFileSync(DB_FILE))
 }
@@ -28,10 +25,7 @@ function saveDB(data) {
 function addUser(id) {
   const db = getDB()
   if (!db[id]) {
-    db[id] = {
-      money: 100,
-      waifus: []
-    }
+    db[id] = { money: 100, waifus: [] }
     saveDB(db)
   }
 }
@@ -50,27 +44,30 @@ async function startBot() {
 
   sock.ev.on("creds.update", saveCreds)
 
-  // 🔑 PAIRING CODE
-  if (!sock.authState.creds.registered) {
-    const code = await sock.requestPairingCode(PHONE_NUMBER)
-    console.log("🔑 CÓDIGO DE VINCULACIÓN:")
-    console.log(code)
-  }
+  // 🔥 CONTROL ANTI MULTI-CODE
+  let codeRequested = false
 
-  // 🔄 reconexión
-  sock.ev.on("connection.update", (update) => {
+  sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect } = update
 
+    // 👉 SOLO 1 VEZ
+    if (!codeRequested && !state.creds.registered) {
+      codeRequested = true
+
+      const code = await sock.requestPairingCode(PHONE_NUMBER)
+      console.log("🔑 CÓDIGO DE VINCULACIÓN:")
+      console.log(code)
+    }
+
+    // 🔄 reconexión segura
     if (connection === "close") {
       const shouldReconnect =
-        lastDisconnect?.error?.output?.statusCode !==
-        DisconnectReason.loggedOut
+        lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
 
       if (shouldReconnect) startBot()
     }
   })
 
-  // 📩 mensajes
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0]
     if (!msg.message) return
@@ -83,14 +80,12 @@ async function startBot() {
     addUser(from)
     const db = getDB()
 
-    // 💰 BALANCE
     if (text === "/balance") {
       return sock.sendMessage(from, {
         text: `🍌 BananoCoins: ${db[from].money}`
       })
     }
 
-    // 💼 WORK
     if (text === "/work") {
       const earn = random(20, 80)
       db[from].money += earn
@@ -101,7 +96,6 @@ async function startBot() {
       })
     }
 
-    // ⛏ MINE
     if (text === "/mine") {
       const earn = random(10, 100)
       db[from].money += earn
@@ -112,29 +106,23 @@ async function startBot() {
       })
     }
 
-    // 🎲 COINFLIP
     if (text.startsWith("/coinflip")) {
       const choice = text.split(" ")[1]
       const result = Math.random() < 0.5 ? "cara" : "cruz"
 
       if (choice === result) {
         db[from].money += 100
-        saveDB(db)
-
-        return sock.sendMessage(from, {
-          text: `🎉 Ganaste +100 🍌`
-        })
       } else {
         db[from].money -= 50
-        saveDB(db)
-
-        return sock.sendMessage(from, {
-          text: `😢 Perdiste -50 🍌`
-        })
       }
+
+      saveDB(db)
+
+      return sock.sendMessage(from, {
+        text: choice === result ? "🎉 Ganaste +100 🍌" : "😢 Perdiste -50 🍌"
+      })
     }
 
-    // 🎰 ROULETTE
     if (text.startsWith("/rt")) {
       const args = text.split(" ")
       const choice = args[1]
@@ -155,26 +143,21 @@ async function startBot() {
       const result = Math.random() < 0.5 ? "red" : "black"
 
       if (choice === result) {
-        const win = bet * 2
-        db[from].money += win
-        saveDB(db)
-
-        return sock.sendMessage(from, {
-          text: `🎉 Ganaste +${win} 🍌`
-        })
+        db[from].money += bet * 2
       } else {
         db[from].money -= bet
-        saveDB(db)
-
-        return sock.sendMessage(from, {
-          text: `😢 Perdiste -${bet} 🍌`
-        })
       }
+
+      saveDB(db)
+
+      return sock.sendMessage(from, {
+        text: choice === result
+          ? `🎉 Ganaste +${bet * 2} 🍌`
+          : `😢 Perdiste -${bet} 🍌`
+      })
     }
 
-    // 👘 WAIFU SYSTEM
     if (text === "/waifu") {
-
       const roll = Math.random()
       let list
 
@@ -194,7 +177,6 @@ async function startBot() {
       })
     }
 
-    // 👘 INVENTARIO WAIFUS
     if (text === "/mywaifus") {
       return sock.sendMessage(from, {
         text: db[from].waifus.join("\n") || "Sin waifus"
