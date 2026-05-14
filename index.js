@@ -7,7 +7,7 @@ const {
 const fs = require("fs-extra")
 const waifus = require("./waifus")
 
-const PHONE_NUMBER = "59899887381"
+const PHONE_NUMBER = "598099887381"
 const DB_FILE = "./data.json"
 const CODE_LOCK_FILE = "./code-lock.json"
 
