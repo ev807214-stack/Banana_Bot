@@ -9,7 +9,9 @@ const waifus = require("./waifus")
 
 const PHONE_NUMBER = "59899887381"
 const DB_FILE = "./data.json"
+const CODE_LOCK_FILE = "./code-lock.json"
 
+// 📦 DB setup
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({}))
 }
@@ -34,6 +36,15 @@ function random(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+// 🔒 LOCK DEL CÓDIGO (EVITA SPAM)
+function hasRequestedCode() {
+  return fs.existsSync(CODE_LOCK_FILE)
+}
+
+function setCodeRequested() {
+  fs.writeFileSync(CODE_LOCK_FILE, JSON.stringify({ done: true }))
+}
+
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("./auth")
 
@@ -44,19 +55,20 @@ async function startBot() {
 
   sock.ev.on("creds.update", saveCreds)
 
-  // 🔥 CONTROL ANTI MULTI-CODE
-  let codeRequested = false
-
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect } = update
 
-    // 👉 SOLO 1 VEZ
-    if (!codeRequested && !state.creds.registered) {
-      codeRequested = true
+    // 🔑 SOLO 1 CÓDIGO EN TODA LA VIDA DEL BOT
+    if (!state.creds.registered && !hasRequestedCode()) {
+      setCodeRequested()
 
-      const code = await sock.requestPairingCode(PHONE_NUMBER)
-      console.log("🔑 CÓDIGO DE VINCULACIÓN:")
-      console.log(code)
+      try {
+        const code = await sock.requestPairingCode(PHONE_NUMBER)
+        console.log("🔑 CÓDIGO ÚNICO DE VINCULACIÓN:")
+        console.log(code)
+      } catch (err) {
+        console.log("Error generando código:", err.message)
+      }
     }
 
     // 🔄 reconexión segura
