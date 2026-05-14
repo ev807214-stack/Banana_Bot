@@ -5,15 +5,18 @@ const {
 } = require("@whiskeysockets/baileys")
 
 const fs = require("fs-extra")
+const waifus = require("./waifus")
 
 const PHONE_NUMBER = "5989XXXXXXX" // 🔴 CAMBIA ESTO
 
 const DB_FILE = "./data.json"
 
+// 📦 crear DB si no existe
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({}))
 }
 
+// 💾 DB utils
 function getDB() {
   return JSON.parse(fs.readFileSync(DB_FILE))
 }
@@ -54,6 +57,7 @@ async function startBot() {
     console.log(code)
   }
 
+  // 🔄 reconexión
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect } = update
 
@@ -66,6 +70,7 @@ async function startBot() {
     }
   })
 
+  // 📩 mensajes
   sock.ev.on("messages.upsert", async ({ messages }) => {
     const msg = messages[0]
     if (!msg.message) return
@@ -115,19 +120,21 @@ async function startBot() {
       if (choice === result) {
         db[from].money += 100
         saveDB(db)
+
         return sock.sendMessage(from, {
           text: `🎉 Ganaste +100 🍌`
         })
       } else {
         db[from].money -= 50
         saveDB(db)
+
         return sock.sendMessage(from, {
           text: `😢 Perdiste -50 🍌`
         })
       }
     }
 
-    // 🎰 ROULETTE /rt red 1000
+    // 🎰 ROULETTE
     if (text.startsWith("/rt")) {
       const args = text.split(" ")
       const choice = args[1]
@@ -165,25 +172,29 @@ async function startBot() {
       }
     }
 
-    // 👘 WAIFU
+    // 👘 WAIFU SYSTEM
     if (text === "/waifu") {
-      const waifus = [
-        "Asuna (épica)",
-        "Mikasa (legendaria)",
-        "Rem (rara)",
-        "Zero Two (legendaria)",
-        "Hinata (común)"
-      ]
 
-      const waifu = waifus[random(0, waifus.length - 1)]
-      db[from].waifus.push(waifu)
+      const roll = Math.random()
+      let list
+
+      if (roll < 0.6) list = waifus.filter(w => w.rarity === "común")
+      else if (roll < 0.85) list = waifus.filter(w => w.rarity === "rara")
+      else if (roll < 0.97) list = waifus.filter(w => w.rarity === "épica")
+      else list = waifus.filter(w => w.rarity === "legendaria")
+
+      const waifu = list[random(0, list.length - 1)]
+
+      db[from].waifus.push(`${waifu.name} [${waifu.rarity}]`)
       saveDB(db)
 
       return sock.sendMessage(from, {
-        text: `👘 ${waifu}`
+        image: { url: waifu.img },
+        caption: `👘 ${waifu.name}\n✨ Rareza: ${waifu.rarity}`
       })
     }
 
+    // 👘 INVENTARIO WAIFUS
     if (text === "/mywaifus") {
       return sock.sendMessage(from, {
         text: db[from].waifus.join("\n") || "Sin waifus"
